@@ -65,6 +65,10 @@ def discover_indexable_files(root: Path) -> list[Path]:
         d = root / sub
         if d.is_dir():
             found.extend(sorted(p.resolve() for p in d.rglob("*.md") if p.is_file()))
+    # Obsidian vaults: "<repo> wiki/" style folders (space before wiki)
+    for d in root.glob("* wiki"):
+        if d.is_dir():
+            found.extend(sorted(p.resolve() for p in d.rglob("*.md") if p.is_file()))
     agents = root / ".agents"
     if agents.is_dir():
         for ext in ("*.md", "*.mdc"):

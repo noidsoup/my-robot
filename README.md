@@ -1,6 +1,6 @@
 # my-robot 🤖
 
-**Clone my robot.** One script turns any repo into an AI-first project — with a verification gate, persistent memory, semantic code search, enforced agent rules, and a full workflow methodology — in about 30 seconds.
+**Clone my robot.** One script turns any repo into an AI-first project — with a verification gate, persistent memory, semantic code search, an Obsidian knowledge wiki, enforced agent rules, and a full workflow methodology — in about 30 seconds.
 
 ```bash
 git clone https://github.com/noidsoup/my-robot
@@ -34,6 +34,7 @@ Every serious AI-assisted project ends up hand-rolling the same fixes: an AGENTS
 | **L1 Retrieval** | Semantic search over your project's own docs/code: 3 LanceDB scripts (index, search, shared lib). Fully offline after install. Non-Python repos get a sidecar note instead of broken scripts. | template, stack-aware |
 | **L2 Constraints** | Agent rules that fire every turn: `pre-task-retrieval` (search before acting) and `verify-before-done` (run the gate, paste real output). Installs to `.cursor/rules/` or `.claude/rules/`. | template |
 | **L3 Workflows** | The [**loops**](https://github.com/noidsoup/loops) methodology — dispatcher + 9 workflows (plan-and-implement, tdd, adversarial-gate, reproduce-and-fix, migrate…) + 9 review personas. Cloned once to `~/.loops`, symlinked into your repo as `.loops`. | git clone |
+| **L4 Knowledge Wiki** | An Obsidian vault at `<repo> wiki/`: SCHEMA.md (LLM conventions), index, log, ADR/guide/entity folders, preconfigured `.obsidian`, a repo-root `WIKI.md` pointer, and an `llm-wiki` agent rule. Wikilinks and frontmatter are indexed by L1 retrieval. | template |
 | **L5 Continuity** | `AI_SESSION_MEMORY.md` + `MEMORY.md` stubs — the agent maintains these, not you. Context survives sessions. | template |
 | **L6 Self-Correction** | Builder → Judge → Manager contract, via loops. No per-repo file needed. | via loops |
 
@@ -61,6 +62,7 @@ L0.5 Env Parity      installed      .env.example stub
 L1 Retrieval         note           non-Python: docs/ai-retrieval.md explains Python-sidecar option
 L2 Constraints       installed      .cursor/rules (2 new, 0 existed)
 L3 Workflows         installed      .loops -> /Users/you/.loops (symlink, auto-updates)
+L4 Knowledge Wiki    installed      my-app wiki/ (open in Obsidian as vault)
 L5 Continuity        installed      memory stubs (2 new, 0 existed)
 gitignore            ensured        uncommitted/ + .loops ignored
 AGENTS.md            installed      minimal stub — fill in stack + invariants

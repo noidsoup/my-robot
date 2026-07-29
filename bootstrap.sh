@@ -26,6 +26,7 @@ LOOPS_ROOT="${LOOPS_ROOT:-$HOME/.loops}"
 TEMPLATE_FILES="
 .env.example
 AGENTS.stub.md
+WIKI.stub.md
 docs/ai-retrieval-sidecar.md
 gen-verify-gate.sh
 memory/AI_SESSION_MEMORY.md
@@ -33,9 +34,14 @@ memory/MEMORY.md
 requirements-lancedb.txt
 rules/pre-task-retrieval.mdc
 rules/verify-before-done.mdc
+rules/llm-wiki.mdc
 scripts/index_project_knowledge_lancedb.py
 scripts/project_knowledge_lancedb_common.py
 scripts/search_project_knowledge_lancedb.py
+wiki/SCHEMA.md
+wiki/index.md
+wiki/log.md
+wiki/.obsidian/app.json
 "
 
 if [[ -d "$SCRIPT_DIR/template" ]]; then
@@ -164,7 +170,7 @@ else
   RULES_DIR=".claude/rules"
 fi
 rw=0; re=0
-for r in pre-task-retrieval.mdc verify-before-done.mdc; do
+for r in pre-task-retrieval.mdc verify-before-done.mdc llm-wiki.mdc; do
   if do_write "$RULES_DIR/$r" "$TEMPLATES_DIR/rules/$r"; then rw=$((rw+1)); else re=$((re+1)); fi
 done
 add_report "L2 Constraints" "installed" "$RULES_DIR ($rw new, $re existed)"
@@ -191,6 +197,30 @@ else
     add_report "L3 Workflows" "installed" ".loops -> $LOOPS_ROOT (symlink, auto-updates)"
   fi
 fi
+
+# ---- L4: Knowledge Wiki (Obsidian vault) ------------------------------------
+# Vault lives at "<repo-folder-name> wiki/" (space before wiki). Fully
+# idempotent: never overwrites an existing vault or its pages.
+VAULT_DIR="$(basename "$TARGET") wiki"
+VAULT_TEMPLATE="$TEMPLATES_DIR/wiki"
+vw=0; ve=0
+if [[ ! -d "$VAULT_DIR" ]]; then
+  if [[ $DRY_RUN -eq 1 ]]; then
+    add_report "L4 Knowledge Wiki" "would-write" "$VAULT_DIR/ (SCHEMA, index, log, .obsidian)"
+  else
+    mkdir -p "$VAULT_DIR/.obsidian" "$VAULT_DIR"/{sources,entities,concepts,decisions,guides,memories,assets}
+    TODAY="$(date +%F)"
+    for f in SCHEMA.md index.md log.md; do
+      sed -e "s|<YYYY-MM-DD>|$TODAY|g" "$VAULT_TEMPLATE/$f" > "$VAULT_DIR/$f"
+    done
+    cp "$VAULT_TEMPLATE/.obsidian/app.json" "$VAULT_DIR/.obsidian/app.json"
+    add_report "L4 Knowledge Wiki" "installed" "$VAULT_DIR/ (open in Obsidian as vault)"
+  fi
+else
+  add_report "L4 Knowledge Wiki" "existed" "$VAULT_DIR/ left untouched"
+fi
+if do_write "WIKI.md" "$TEMPLATES_DIR/WIKI.stub.md"; then vw=$((vw+1)); else ve=$((ve+1)); fi
+[[ $vw -gt 0 || $ve -gt 0 ]] && add_report "  WIKI.md pointer" "$([[ $vw -gt 0 ]] && echo installed || echo existed)" "repo-root pointer to the vault"
 
 # ---- L5: Continuity (memory stubs) -----------------------------------------
 cw=0; ce=0
