@@ -83,6 +83,8 @@ python3 -u scripts/index_project_knowledge_lancedb.py --apply
 
 ## The companion: loops
 
+Want the full transcript of a real run? See [docs/demo.md](docs/demo.md).
+
 my-robot installs the **foundation**; [loops](https://github.com/noidsoup/loops) is the **methodology** that runs on top of it. Once bootstrapped, say *"use the loops"* to your agent and it will route through the dispatcher: plan-and-implement for features, tdd for behavior-locking, adversarial-gate before merges, reproduce-and-fix for bugs.
 
 ## Who made this
