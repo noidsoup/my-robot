@@ -8,11 +8,13 @@ my-robot/bootstrap.sh --dry-run /path/to/your/repo   # see what it would do
 my-robot/bootstrap.sh /path/to/your/repo             # do it
 ```
 
-No clone? One line fetches everything:
+Prefer the clone path. A one-liner fetch exists for convenience — **review the script before piping to a shell**, and start with `--dry-run`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/noidsoup/my-robot/main/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/noidsoup/my-robot/main/bootstrap.sh | bash -s -- --dry-run
 ```
+
+Greenfield repos (no Cursor/Claude yet) get `.cursor/rules` by default; Claude-only repos (`CLAUDE.md` / `.claude/`) get `.claude/rules`.
 
 ## The problem
 

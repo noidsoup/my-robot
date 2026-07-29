@@ -28,9 +28,9 @@ Governed by `.cursor/rules/pre-task-retrieval.mdc`. Cheapest-first:
 
 | Need | Open |
 | ---- | ---- |
-| Operations / deploy / env | `AI_RUNBOOK.md` |
+| Operations / deploy / env | `AI_RUNBOOK.md` (created by bootstrap) |
 | Recent decisions | `AI_SESSION_MEMORY.md` |
-| Architecture | `docs/ARCHITECTURE.md` |
+| Architecture | `docs/ARCHITECTURE.md` (created by bootstrap) |
 | Workflows (plan, tdd, gate, migrate…) | global `.loops/` (say "use the loops") |
 
 ## Continuity

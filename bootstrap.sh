@@ -26,7 +26,9 @@ LOOPS_ROOT="${LOOPS_ROOT:-$HOME/.loops}"
 TEMPLATE_FILES="
 .env.example
 AGENTS.stub.md
+AI_RUNBOOK.stub.md
 WIKI.stub.md
+docs/ARCHITECTURE.stub.md
 docs/ai-retrieval-sidecar.md
 gen-verify-gate.sh
 memory/AI_SESSION_MEMORY.md
@@ -48,14 +50,16 @@ if [[ -d "$SCRIPT_DIR/template" ]]; then
   TEMPLATES_DIR="$SCRIPT_DIR/template"
 else
   TEMPLATES_DIR="$CACHE_DIR/template"
-  if [[ ! -f "$TEMPLATES_DIR/AGENTS.stub.md" ]]; then
-    echo "fetching my-robot templates -> $TEMPLATES_DIR"
-    for f in $TEMPLATE_FILES; do
+  # Fetch any missing template files (do not treat a partial cache as complete —
+  # new stubs added in later releases must still download).
+  for f in $TEMPLATE_FILES; do
+    if [[ ! -f "$TEMPLATES_DIR/$f" ]]; then
+      echo "fetching my-robot template: $f -> $TEMPLATES_DIR/$f"
       mkdir -p "$(dirname "$TEMPLATES_DIR/$f")"
       curl -fsSL "$REPO_RAW/template/$f" -o "$TEMPLATES_DIR/$f"
-    done
-    chmod +x "$TEMPLATES_DIR/gen-verify-gate.sh" 2>/dev/null || true
-  fi
+    fi
+  done
+  chmod +x "$TEMPLATES_DIR/gen-verify-gate.sh" 2>/dev/null || true
 fi
 
 DRY_RUN=0
@@ -64,7 +68,7 @@ TARGET="."
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run) DRY_RUN=1; shift ;;
-    -h|--help) grep '^#' "$0" | sed 's/^# \?//'; exit 0 ;;
+    -h|--help) grep '^#' "$0" | sed 's/^# \?//' ; exit 0 ;;
     *) TARGET="$1"; shift ;;
   esac
 done
@@ -77,24 +81,82 @@ cd "$TARGET"
 declare -a REPORT
 add_report() { REPORT+=("$1|$2|$3"); }  # layer|status|detail
 
+WRITE_FAILED=0
+
+# LAST_WRITE: installed | would-write | existed | failed
+LAST_WRITE=existed
 do_write() {  # do_write <dest-rel> <src-abs>   (create if absent)
   local dest="$1" src="$2"
   if [[ -e "$dest" ]]; then
-    return 1  # existed
+    LAST_WRITE=existed
+    return 1
+  fi
+  if [[ ! -f "$src" ]]; then
+    LAST_WRITE=failed
+    WRITE_FAILED=1
+    echo "WARN: template missing: $src" >&2
+    return 2
   fi
   if [[ $DRY_RUN -eq 1 ]]; then
-    return 0  # would-write
+    LAST_WRITE=would-write
+    return 0
   fi
   mkdir -p "$(dirname "$dest")"
-  cp "$src" "$dest"
-  return 0
+  if cp "$src" "$dest"; then
+    LAST_WRITE=installed
+    return 0
+  fi
+  LAST_WRITE=failed
+  WRITE_FAILED=1
+  echo "WARN: failed to write $dest" >&2
+  return 2
 }
 
+# Count a do_write result into new/existed/failed counters (by name refs).
+# Usage: count_write <new_var> <existed_var> <failed_var>
+count_write() {
+  local _n="$1" _e="$2" _f="$3"
+  case "$LAST_WRITE" in
+    installed|would-write) eval "$_n=\$((${_n}+1))" ;;
+    existed) eval "$_e=\$((${_e}+1))" ;;
+    failed) eval "$_f=\$((${_f}+1))" ;;
+  esac
+}
+
+# Aggregate status: failed wins; else new>0 → installed/would-write; else existed.
+batch_status() {
+  local new_count="$1" failed_count="${2:-0}"
+  if [[ "$failed_count" -gt 0 ]]; then
+    echo "failed"
+    return
+  fi
+  if [[ "$new_count" -gt 0 ]]; then
+    if [[ $DRY_RUN -eq 1 ]]; then
+      echo "would-write"
+    else
+      echo "installed"
+    fi
+  else
+    echo "existed"
+  fi
+}
+
+# LAST_ENSURE: added | would-add | existed
+LAST_ENSURE=existed
 ensure_line() {  # ensure_line <file> <line>
   local file="$1" line="$2"
-  [[ $DRY_RUN -eq 1 ]] && { grep -qxF "$line" "$file" 2>/dev/null || echo "would-add"; return; }
+  if [[ -f "$file" ]] && grep -qxF "$line" "$file" 2>/dev/null; then
+    LAST_ENSURE=existed
+    return 1
+  fi
+  if [[ $DRY_RUN -eq 1 ]]; then
+    LAST_ENSURE=would-add
+    return 0
+  fi
   touch "$file"
   grep -qxF "$line" "$file" 2>/dev/null || echo "$line" >> "$file"
+  LAST_ENSURE=added
+  return 0
 }
 
 # ---- 1. DETECT --------------------------------------------------------------
@@ -140,40 +202,43 @@ fi
 add_report "L0 Ground Truth" "$VERIFY_STATUS" "$VERIFY_DETAIL"
 
 # ---- L0.5: Environment Parity ----------------------------------------------
-if do_write ".env.example" "$TEMPLATES_DIR/.env.example"; then
-  add_report "L0.5 Env Parity" "installed" ".env.example stub"
-else
-  add_report "L0.5 Env Parity" "existed" ".env.example already present"
-fi
+do_write ".env.example" "$TEMPLATES_DIR/.env.example" || true
+add_report "L0.5 Env Parity" "$LAST_WRITE" ".env.example stub"
 
 # ---- L1: Retrieval (LanceDB scaffold) --------------------------------------
 if [[ $HAS_PY -eq 1 ]]; then
-  w=0; e=0
-  for f in project_knowledge_lancedb_common.py index_project_knowledge_lancedb.py search_project_knowledge_lancedb.py; do
-    if do_write "scripts/$f" "$TEMPLATES_DIR/scripts/$f"; then w=$((w+1)); else e=$((e+1)); fi
+  w=0; e=0; f=0
+  for file in project_knowledge_lancedb_common.py index_project_knowledge_lancedb.py search_project_knowledge_lancedb.py; do
+    do_write "scripts/$file" "$TEMPLATES_DIR/scripts/$file" || true
+    count_write w e f
   done
-  do_write "requirements-lancedb.txt" "$TEMPLATES_DIR/requirements-lancedb.txt" && w=$((w+1)) || e=$((e+1))
-  add_report "L1 Retrieval" "installed" "LanceDB scaffold ($w new, $e existed) — run index after"
+  do_write "requirements-lancedb.txt" "$TEMPLATES_DIR/requirements-lancedb.txt" || true
+  count_write w e f
+  add_report "L1 Retrieval" "$(batch_status "$w" "$f")" "LanceDB scaffold ($w new, $e existed, $f failed) — run index after"
 else
   # JS/other: note the Python-sidecar path instead of broken scripts
-  if do_write "docs/ai-retrieval.md" "$TEMPLATES_DIR/docs/ai-retrieval-sidecar.md"; then
-    add_report "L1 Retrieval" "note" "non-Python: docs/ai-retrieval.md explains Python-sidecar option"
-  else
-    add_report "L1 Retrieval" "existed" "docs/ai-retrieval.md present"
-  fi
+  do_write "docs/ai-retrieval.md" "$TEMPLATES_DIR/docs/ai-retrieval-sidecar.md" || true
+  case "$LAST_WRITE" in
+    existed) add_report "L1 Retrieval" "existed" "docs/ai-retrieval.md present" ;;
+    would-write) add_report "L1 Retrieval" "would-write" "non-Python: would add docs/ai-retrieval.md (sidecar note)" ;;
+    failed) add_report "L1 Retrieval" "failed" "could not write docs/ai-retrieval.md" ;;
+    *) add_report "L1 Retrieval" "note" "non-Python: docs/ai-retrieval.md explains Python-sidecar option" ;;
+  esac
 fi
 
 # ---- L2: Constraints (rules) ------------------------------------------------
+# Default to .cursor/rules (greenfield + Cursor). Claude-only repos get .claude/rules.
 if [[ $HAS_CURSOR -eq 1 || $HAS_CLAUDE -eq 0 ]]; then
   RULES_DIR=".cursor/rules"
 else
   RULES_DIR=".claude/rules"
 fi
-rw=0; re=0
+rw=0; re=0; rf=0
 for r in pre-task-retrieval.mdc verify-before-done.mdc llm-wiki.mdc; do
-  if do_write "$RULES_DIR/$r" "$TEMPLATES_DIR/rules/$r"; then rw=$((rw+1)); else re=$((re+1)); fi
+  do_write "$RULES_DIR/$r" "$TEMPLATES_DIR/rules/$r" || true
+  count_write rw re rf
 done
-add_report "L2 Constraints" "installed" "$RULES_DIR ($rw new, $re existed)"
+add_report "L2 Constraints" "$(batch_status "$rw" "$rf")" "$RULES_DIR ($rw new, $re existed, $rf failed)"
 
 # ---- L3: Workflows (clone loops + symlink) ----------------------------------
 if [[ -e .loops ]]; then
@@ -200,48 +265,105 @@ fi
 
 # ---- L4: Knowledge Wiki (Obsidian vault) ------------------------------------
 # Vault lives at "<repo-folder-name> wiki/" (space before wiki). Fully
-# idempotent: never overwrites an existing vault or its pages.
+# idempotent: never overwrites non-empty existing pages. Incomplete vaults
+# (missing or empty core pages) are repaired.
 VAULT_DIR="$(basename "$TARGET") wiki"
 VAULT_TEMPLATE="$TEMPLATES_DIR/wiki"
-vw=0; ve=0
-if [[ ! -d "$VAULT_DIR" ]]; then
+vault_page_ok() { [[ -f "$1" && -s "$1" ]]; }
+vault_complete() {
+  vault_page_ok "$VAULT_DIR/SCHEMA.md" \
+    && vault_page_ok "$VAULT_DIR/index.md" \
+    && vault_page_ok "$VAULT_DIR/log.md"
+}
+
+if vault_complete; then
+  add_report "L4 Knowledge Wiki" "existed" "$VAULT_DIR/ left untouched"
+elif [[ ! -d "$VAULT_TEMPLATE" ]] \
+     || [[ ! -f "$VAULT_TEMPLATE/SCHEMA.md" ]] \
+     || [[ ! -f "$VAULT_TEMPLATE/index.md" ]] \
+     || [[ ! -f "$VAULT_TEMPLATE/log.md" ]]; then
+  WRITE_FAILED=1
   if [[ $DRY_RUN -eq 1 ]]; then
-    add_report "L4 Knowledge Wiki" "would-write" "$VAULT_DIR/ (SCHEMA, index, log, .obsidian)"
+    add_report "L4 Knowledge Wiki" "failed" "wiki template missing under $VAULT_TEMPLATE"
   else
-    mkdir -p "$VAULT_DIR/.obsidian" "$VAULT_DIR"/{sources,entities,concepts,decisions,guides,memories,assets}
-    TODAY="$(date +%F)"
-    for f in SCHEMA.md index.md log.md; do
-      sed -e "s|<YYYY-MM-DD>|$TODAY|g" "$VAULT_TEMPLATE/$f" > "$VAULT_DIR/$f"
-    done
-    cp "$VAULT_TEMPLATE/.obsidian/app.json" "$VAULT_DIR/.obsidian/app.json"
-    add_report "L4 Knowledge Wiki" "installed" "$VAULT_DIR/ (open in Obsidian as vault)"
+    add_report "L4 Knowledge Wiki" "failed" "wiki template missing: $VAULT_TEMPLATE"
+  fi
+elif [[ $DRY_RUN -eq 1 ]]; then
+  if [[ -d "$VAULT_DIR" ]]; then
+    add_report "L4 Knowledge Wiki" "would-write" "would repair incomplete $VAULT_DIR/"
+  else
+    add_report "L4 Knowledge Wiki" "would-write" "$VAULT_DIR/ (SCHEMA, index, log, .obsidian)"
   fi
 else
-  add_report "L4 Knowledge Wiki" "existed" "$VAULT_DIR/ left untouched"
+  mkdir -p "$VAULT_DIR/.obsidian" "$VAULT_DIR"/{sources,entities,concepts,decisions,guides,memories,assets}
+  TODAY="$(date +%F)"
+  vault_ok=1
+  for f in SCHEMA.md index.md log.md; do
+    if vault_page_ok "$VAULT_DIR/$f"; then
+      continue
+    fi
+    tmp="$VAULT_DIR/$f.bootstrap-tmp"
+    if sed -e "s|<YYYY-MM-DD>|$TODAY|g" "$VAULT_TEMPLATE/$f" > "$tmp" && [[ -s "$tmp" ]]; then
+      mv "$tmp" "$VAULT_DIR/$f"
+    else
+      rm -f "$tmp"
+      echo "WARN: failed to write $VAULT_DIR/$f" >&2
+      vault_ok=0
+    fi
+  done
+  if [[ ! -f "$VAULT_DIR/.obsidian/app.json" ]]; then
+    if ! cp "$VAULT_TEMPLATE/.obsidian/app.json" "$VAULT_DIR/.obsidian/app.json"; then
+      vault_ok=0
+    fi
+  fi
+  if [[ "$vault_ok" -eq 1 ]] && vault_complete; then
+    add_report "L4 Knowledge Wiki" "installed" "$VAULT_DIR/ (open in Obsidian as vault)"
+  else
+    WRITE_FAILED=1
+    add_report "L4 Knowledge Wiki" "failed" "could not complete $VAULT_DIR/"
+  fi
 fi
-if do_write "WIKI.md" "$TEMPLATES_DIR/WIKI.stub.md"; then vw=$((vw+1)); else ve=$((ve+1)); fi
-[[ $vw -gt 0 || $ve -gt 0 ]] && add_report "  WIKI.md pointer" "$([[ $vw -gt 0 ]] && echo installed || echo existed)" "repo-root pointer to the vault"
+do_write "WIKI.md" "$TEMPLATES_DIR/WIKI.stub.md" || true
+add_report "  WIKI.md pointer" "$LAST_WRITE" "repo-root pointer to the vault"
 
 # ---- L5: Continuity (memory stubs) -----------------------------------------
-cw=0; ce=0
+cw=0; ce=0; cf=0
 for m in AI_SESSION_MEMORY.md MEMORY.md; do
-  if do_write "$m" "$TEMPLATES_DIR/memory/$m"; then cw=$((cw+1)); else ce=$((ce+1)); fi
+  do_write "$m" "$TEMPLATES_DIR/memory/$m" || true
+  count_write cw ce cf
 done
-add_report "L5 Continuity" "installed" "memory stubs ($cw new, $ce existed)"
+add_report "L5 Continuity" "$(batch_status "$cw" "$cf")" "memory stubs ($cw new, $ce existed, $cf failed)"
 
-# ---- gitignore uncommitted/ + loops symlink --------------------------------
+# ---- Ops stubs referenced by AGENTS.md -------------------------------------
+do_write "AI_RUNBOOK.md" "$TEMPLATES_DIR/AI_RUNBOOK.stub.md" || true
+add_report "  AI_RUNBOOK.md" "$LAST_WRITE" "ops / deploy / env stub"
+do_write "docs/ARCHITECTURE.md" "$TEMPLATES_DIR/docs/ARCHITECTURE.stub.md" || true
+add_report "  ARCHITECTURE.md" "$LAST_WRITE" "docs/ARCHITECTURE.md stub"
+
+# ---- gitignore: only list lines we actually manage -------------------------
+GI_PARTS=()
+GI_STATUS="ensured"
 if [[ $HAS_PY -eq 1 ]]; then
-  ensure_line .gitignore "uncommitted/" >/dev/null
+  GI_PARTS+=("uncommitted/")
+  if ensure_line .gitignore "uncommitted/"; then
+    [[ "$LAST_ENSURE" == "would-add" ]] && GI_STATUS="would-ensure"
+  fi
 fi
-ensure_line .gitignore ".loops" >/dev/null
-add_report "gitignore" "ensured" "uncommitted/ + .loops ignored"
+GI_PARTS+=(".loops")
+if ensure_line .gitignore ".loops"; then
+  [[ "$LAST_ENSURE" == "would-add" ]] && GI_STATUS="would-ensure"
+fi
+GI_DETAIL="$(IFS=', '; echo "${GI_PARTS[*]}") ignored"
+add_report "gitignore" "$GI_STATUS" "$GI_DETAIL"
 
 # ---- AGENTS.md pointer (create minimal if absent) --------------------------
-if do_write "AGENTS.md" "$TEMPLATES_DIR/AGENTS.stub.md"; then
-  add_report "AGENTS.md" "installed" "minimal stub — fill in stack + invariants"
-else
-  add_report "AGENTS.md" "existed" "left untouched"
-fi
+do_write "AGENTS.md" "$TEMPLATES_DIR/AGENTS.stub.md" || true
+case "$LAST_WRITE" in
+  existed) add_report "AGENTS.md" "existed" "left untouched" ;;
+  would-write) add_report "AGENTS.md" "would-write" "minimal stub — fill in stack + invariants" ;;
+  failed) add_report "AGENTS.md" "failed" "could not write AGENTS.md stub" ;;
+  *) add_report "AGENTS.md" "installed" "minimal stub — fill in stack + invariants" ;;
+esac
 
 # ---- REPORT -----------------------------------------------------------------
 echo
@@ -256,4 +378,8 @@ if [[ $HAS_PY -eq 1 ]]; then
   echo "Next: pip install -r requirements-lancedb.txt && python3 -u scripts/index_project_knowledge_lancedb.py --apply"
 fi
 [[ "$VERIFY_STATUS" == "stub" ]] && echo "Action needed (L0): $VERIFY_DETAIL"
+if [[ "$WRITE_FAILED" -ne 0 ]]; then
+  echo "Done with errors — one or more template writes failed (see WARN lines)."
+  exit 1
+fi
 echo "Done."
