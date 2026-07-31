@@ -28,7 +28,9 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-TARGET="$(cd "$TARGET" 2>/dev/null && pwd -P || true)"
+if ! TARGET="$(cd "$TARGET" 2>/dev/null && pwd -P)"; then
+  TARGET=""
+fi
 [ -z "$TARGET" ] && { echo "ERROR: target is not a directory"; exit 1; }
 [ -d "$TARGET" ] || { echo "ERROR: target is not a directory"; exit 1; }
 cd "$TARGET" || exit 1
