@@ -16,12 +16,15 @@ The vault folder at the project root is **`<repo-folder-name> wiki/`** (reposito
 ├── SCHEMA.md          ← you are here (LLM instructions)
 ├── index.md           ← content catalog, organized by type
 ├── log.md             ← chronological operations log
-├── sources/           ← summaries of ingested documents
+├── raw/               ← immutable inbox (human drops sources here; LLM never edits)
+├── sources/           ← LLM summaries of ingested documents
 ├── entities/          ← concrete things (tools, services, APIs, tables, configs)
 ├── concepts/          ← patterns, principles, architectural ideas
 ├── decisions/         ← architecture decision records (ADRs)
 ├── guides/            ← how-tos, runbooks, procedures
+├── synthesis/         ← cross-cutting answers worth keeping
 ├── memories/          ← session-memory mirrors / archives
+├── _templates/        ← page skeletons for the LLM
 └── assets/            ← images, diagrams, attachments
 ```
 
@@ -132,11 +135,24 @@ Migrate from repo **`docs/`** in batches; synthesize; do **not** delete original
 
 ### Query
 
-Read `index.md`, then relevant pages; answer with `[[wikilinks]]`; offer to file synthesis as new pages.
+Read `index.md`, then relevant pages; answer with `[[wikilinks]]`; offer to file synthesis as new pages under `synthesis/`.
+
+### Contradictions
+
+If new evidence conflicts with an existing page: do **not** silently overwrite. Mark
+`status: disputed` (or add a callout), cite both sources, and ask the human before
+resolving.
 
 ### Lint
 
-Orphans, dead links, index drift, stale frontmatter, thin pages — report as checklist; fix with user approval.
+Run the structural gate (when installed):
+
+```bash
+python3 scripts/wiki-lint.py
+```
+
+Checks orphans, dead `[[wikilinks]]`, index drift, thin pages, kebab filenames.
+Fix with user approval for semantic changes; the script is the mechanical gate.
 
 ## Style rules
 

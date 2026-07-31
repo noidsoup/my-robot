@@ -195,6 +195,20 @@ bash "$BOOT" "$PARTIAL" >"$TMP/partial.out" 2>&1
 assert_grep "$TMP/partial.out" 'L4 Knowledge Wiki[[:space:]]+installed' "incomplete vault repaired"
 assert_file "$PARTIAL/$(basename "$PARTIAL") wiki/SCHEMA.md" "repaired vault has SCHEMA.md"
 
+# ---- 9. Doctor + bridges + harness helpers ---------------------------------
+assert_file "$NODE/CLAUDE.md" "apply wrote CLAUDE.md bridge"
+assert_file "$NODE/.cursor/rules/agents.mdc" "apply wrote agents.mdc bridge"
+assert_file "$NODE/scripts/wiki-lint.py" "apply wrote wiki-lint.py"
+assert_file "$NODE/scripts/run-verify-phases.sh" "apply wrote run-verify-phases.sh"
+assert_file "$NODE/.harness/verify.conf.example" "apply wrote verify.conf.example"
+assert_file "$NODE/.my-robot/manifest.json" "apply wrote install manifest"
+set +e
+bash "$BOOT" --doctor "$NODE" >"$TMP/doctor.out" 2>&1
+DRC=$?
+set -e
+if [[ "$DRC" -eq 0 ]]; then pass "doctor exits 0 on bootstrapped node app"; else fail "doctor exit=$DRC"; fi
+assert_grep "$TMP/doctor.out" 'doctor: PASS' "doctor reports PASS"
+
 echo
 if [[ "$FAILED" -eq 0 ]]; then
   echo "smoke_bootstrap: PASS ($RAN checks)"

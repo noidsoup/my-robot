@@ -34,7 +34,7 @@ This is that work, done once, installable anywhere.
 | **Memory** | Session + long-term memory files | Context survives across chats. |
 | **AGENTS.md** | Stub + `.gitignore` tweaks | A place for your stack and hard rules. |
 
-Safe by default: nothing you already have is overwritten. Re-runs report `existed` and skip. Prefer `--dry-run` first.
+Safe by default: nothing you already have is overwritten. Re-runs report `existed` and skip. Prefer `--dry-run` first. Health-check an install with `bootstrap.sh --doctor`.
 
 ## What it looks like
 
@@ -54,6 +54,7 @@ Full transcript of a real run: [docs/demo.md](docs/demo.md).
 
 1. **Verify gate** — if you got the fail-loud stub, add real tests or lint so “correct” means something.
 2. **AGENTS.md** — ask your coding agent to fill the `<PLACEHOLDERS>` from the repo (stack, deploy host, hard rules). Spot-check; don’t invent secrets.
+3. **Optional harness** — copy `.harness/verify.conf.example` → `.harness/verify.conf`, then `bash scripts/run-verify-phases.sh`. Lint the wiki with `python3 scripts/wiki-lint.py`.
 
 Python repos, one more step to light up search:
 

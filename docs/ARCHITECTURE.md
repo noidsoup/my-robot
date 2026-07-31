@@ -8,10 +8,12 @@ A one-script bootstrap that installs a 7-layer AI-first development foundation i
 
 | Path | Role |
 | ---- | ---- |
-| `bootstrap.sh` | Installer (idempotent, stack-aware, `--dry-run`) |
+| `bootstrap.sh` | Installer (idempotent, stack-aware, `--dry-run`, `--doctor`) |
 | `template/` | Files copied or used to generate target-repo artifacts |
 | `template/gen-verify-gate.sh` | Detects real checks; writes honest `.verify.sh` |
-| `template/scripts/` | LanceDB index/search (Python targets only) |
+| `template/scripts/` | LanceDB, wiki-lint, verify-phases, doctor, handoff |
+| `template/bridges/` | Thin CLAUDE.md + Cursor `agents.mdc` → AGENTS.md |
+| `template/.harness/` | Declarative verify phase example |
 | `template/rules/` | Cursor/Claude always-on rules |
 | `template/wiki/` | Obsidian vault seed (`<repo> wiki/`) |
 | `tests/smoke_bootstrap.sh` | Self-tests for dry-run honesty + apply + idempotency |

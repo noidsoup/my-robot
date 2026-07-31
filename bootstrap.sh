@@ -7,6 +7,7 @@
 # Usage:
 #   bootstrap.sh [TARGET_DIR]      # default: current directory
 #   bootstrap.sh --dry-run [DIR]   # report what WOULD happen, write nothing
+#   bootstrap.sh --doctor [DIR]    # read-only health check (no writes)
 #
 # Standalone (no clone):
 #   curl -fsSL https://raw.githubusercontent.com/noidsoup/my-robot/main/bootstrap.sh | bash -s -- --dry-run
@@ -41,9 +42,16 @@ requirements-lancedb.txt
 rules/pre-task-retrieval.mdc
 rules/verify-before-done.mdc
 rules/llm-wiki.mdc
+bridges/CLAUDE.stub.md
+bridges/cursor-agents.mdc
 scripts/index_project_knowledge_lancedb.py
 scripts/project_knowledge_lancedb_common.py
 scripts/search_project_knowledge_lancedb.py
+scripts/run-verify-phases.sh
+scripts/wiki-lint.py
+scripts/doctor.sh
+scripts/handoff.sh
+.harness/verify.conf.example
 wiki/SCHEMA.md
 wiki/index.md
 wiki/log.md
@@ -67,11 +75,13 @@ else
 fi
 
 DRY_RUN=0
+DOCTOR=0
 TARGET="."
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run) DRY_RUN=1; shift ;;
+    --doctor) DOCTOR=1; shift ;;
     -h|--help) grep '^#' "$0" | sed 's/^# \?//' ; exit 0 ;;
     *) TARGET="$1"; shift ;;
   esac
@@ -81,6 +91,18 @@ if ! TARGET="$(cd "$TARGET" 2>/dev/null && pwd)"; then
   TARGET=""
 fi
 [[ -z "$TARGET" || ! -d "$TARGET" ]] && { echo "ERROR: target is not a directory"; exit 1; }
+
+# ---- doctor (read-only; no writes) ------------------------------------------
+if [[ $DOCTOR -eq 1 ]]; then
+  DOCTOR_SH="$TEMPLATES_DIR/scripts/doctor.sh"
+  if [[ ! -f "$DOCTOR_SH" ]]; then
+    echo "ERROR: doctor.sh template missing at $DOCTOR_SH"
+    exit 1
+  fi
+  bash "$DOCTOR_SH" "$TARGET"
+  exit $?
+fi
+
 cd "$TARGET"
 
 # ---- report helpers ---------------------------------------------------------
@@ -194,7 +216,13 @@ if [[ -f "$GENVERIFY" ]]; then
   if [[ -f .verify.sh ]]; then
     VERIFY_STATUS="existed"; VERIFY_DETAIL=".verify.sh already present"
   elif [[ $DRY_RUN -eq 1 ]]; then
-    VERIFY_STATUS="would-write"; VERIFY_DETAIL="would generate .verify.sh from detected checks"
+    GV_OUT="$(bash "$GENVERIFY" --dry-run "$TARGET" 2>&1 || true)"
+    if echo "$GV_OUT" | grep -q 'none detected'; then
+      VERIFY_STATUS="would-write"; VERIFY_DETAIL="would write fail-loud .verify.sh (no checks detected)"
+    else
+      GV_CHECKS="$(echo "$GV_OUT" | grep '^checks:' | sed 's/^checks: //')"
+      VERIFY_STATUS="would-write"; VERIFY_DETAIL="would generate .verify.sh: ${GV_CHECKS:-detected checks}"
+    fi
   else
     GV_OUT="$(bash "$GENVERIFY" "$TARGET" 2>&1)"
     if echo "$GV_OUT" | grep -q 'none detected'; then
@@ -245,6 +273,14 @@ for r in pre-task-retrieval.mdc verify-before-done.mdc llm-wiki.mdc; do
   count_write rw re rf
 done
 add_report "L2 Constraints" "$(batch_status "$rw" "$rf")" "$RULES_DIR ($rw new, $re existed, $rf failed)"
+
+# ---- L2.5: Thin tool bridges (AGENTS.md is canonical) ----------------------
+# contextdocs / agentic-bootstrap pattern: don't duplicate instructions —
+# point Claude/Cursor at AGENTS.md. Create-if-absent only.
+do_write "CLAUDE.md" "$TEMPLATES_DIR/bridges/CLAUDE.stub.md" || true
+add_report "  CLAUDE.md bridge" "$LAST_WRITE" "@AGENTS.md adapter for Claude Code"
+do_write "$RULES_DIR/agents.mdc" "$TEMPLATES_DIR/bridges/cursor-agents.mdc" || true
+add_report "  agents.mdc bridge" "$LAST_WRITE" "Cursor always-on pointer to AGENTS.md"
 
 # ---- L3: Workflows (clone loops + symlink) ----------------------------------
 if [[ -e .loops ]]; then
@@ -301,7 +337,7 @@ elif [[ $DRY_RUN -eq 1 ]]; then
     add_report "L4 Knowledge Wiki" "would-write" "$VAULT_DIR/ (SCHEMA, index, log, .obsidian)"
   fi
 else
-  mkdir -p "$VAULT_DIR/.obsidian" "$VAULT_DIR"/{sources,entities,concepts,decisions,guides,memories,assets}
+    mkdir -p "$VAULT_DIR/.obsidian" "$VAULT_DIR"/{sources,entities,concepts,decisions,guides,memories,synthesis,raw,assets,_templates}
   TODAY="$(date +%F)"
   vault_ok=1
   for f in SCHEMA.md index.md log.md; do
@@ -361,6 +397,43 @@ if ensure_line .gitignore ".loops"; then
 fi
 GI_DETAIL="$(IFS=', '; echo "${GI_PARTS[*]}") ignored"
 add_report "gitignore" "$GI_STATUS" "$GI_DETAIL"
+
+# ---- Harness helpers (declarative phases + wiki lint + handoff) ------------
+do_write "scripts/run-verify-phases.sh" "$TEMPLATES_DIR/scripts/run-verify-phases.sh" || true
+add_report "  verify-phases" "$LAST_WRITE" "scripts/run-verify-phases.sh"
+do_write "scripts/wiki-lint.py" "$TEMPLATES_DIR/scripts/wiki-lint.py" || true
+add_report "  wiki-lint" "$LAST_WRITE" "scripts/wiki-lint.py"
+do_write "scripts/handoff.sh" "$TEMPLATES_DIR/scripts/handoff.sh" || true
+add_report "  handoff" "$LAST_WRITE" "scripts/handoff.sh"
+do_write "scripts/doctor.sh" "$TEMPLATES_DIR/scripts/doctor.sh" || true
+add_report "  doctor" "$LAST_WRITE" "scripts/doctor.sh (or: bootstrap.sh --doctor)"
+do_write ".harness/verify.conf.example" "$TEMPLATES_DIR/.harness/verify.conf.example" || true
+add_report "  verify.conf.example" "$LAST_WRITE" "copy to .harness/verify.conf and wire phases"
+if [[ $DRY_RUN -eq 0 ]]; then
+  chmod +x scripts/run-verify-phases.sh scripts/handoff.sh scripts/doctor.sh 2>/dev/null || true
+fi
+
+# ---- Install manifest (agent-feed inspired) --------------------------------
+MANIFEST_DIR=".my-robot"
+MANIFEST="$MANIFEST_DIR/manifest.json"
+if [[ -f "$MANIFEST" ]]; then
+  add_report "manifest" "existed" "$MANIFEST left untouched"
+elif [[ $DRY_RUN -eq 1 ]]; then
+  add_report "manifest" "would-write" "$MANIFEST"
+else
+  mkdir -p "$MANIFEST_DIR"
+  cat > "$MANIFEST" <<EOF
+{
+  "schema_version": 1,
+  "installer": "my-robot",
+  "installed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "vault": "$(basename "$TARGET") wiki",
+  "layers": ["L0", "L0.5", "L1", "L2", "L3", "L4", "L5", "L6"],
+  "notes": "Create-if-absent install. Re-run bootstrap.sh --doctor for health. Managed templates are never force-overwritten."
+}
+EOF
+  add_report "manifest" "installed" "$MANIFEST"
+fi
 
 # ---- AGENTS.md pointer (create minimal if absent) --------------------------
 do_write "AGENTS.md" "$TEMPLATES_DIR/AGENTS.stub.md" || true

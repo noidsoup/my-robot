@@ -1,0 +1,13 @@
+---
+description: my-robot — always load AGENTS.md (canonical agent brief)
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# Agent brief
+
+Read and follow **AGENTS.md** at the repo root (stack, invariants, verify gate, topic map).
+
+Project-specific Cursor rules in this folder (retrieval, verify-before-done, wiki) still apply.
+When they conflict with AGENTS.md on *project facts*, AGENTS.md wins; when they conflict on *Cursor mechanics*, the `.mdc` rule wins.
