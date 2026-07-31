@@ -23,7 +23,7 @@ L5 Continuity        installed      memory stubs (2 new, 0 existed, 0 failed)
   AI_RUNBOOK.md      installed      ops / deploy / env stub
   ARCHITECTURE.md    installed      docs/ARCHITECTURE.md stub
 gitignore            ensured        .loops ignored
-AGENTS.md            installed      minimal stub — fill in stack + invariants
+AGENTS.md            installed      minimal stub — ask your agent to fill stack + invariants
 
 Done.
 ```

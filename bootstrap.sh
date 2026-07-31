@@ -366,9 +366,9 @@ add_report "gitignore" "$GI_STATUS" "$GI_DETAIL"
 do_write "AGENTS.md" "$TEMPLATES_DIR/AGENTS.stub.md" || true
 case "$LAST_WRITE" in
   existed) add_report "AGENTS.md" "existed" "left untouched" ;;
-  would-write) add_report "AGENTS.md" "would-write" "minimal stub — fill in stack + invariants" ;;
+  would-write) add_report "AGENTS.md" "would-write" "minimal stub — ask your agent to fill stack + invariants" ;;
   failed) add_report "AGENTS.md" "failed" "could not write AGENTS.md stub" ;;
-  *) add_report "AGENTS.md" "installed" "minimal stub — fill in stack + invariants" ;;
+  *) add_report "AGENTS.md" "installed" "minimal stub — ask your agent to fill stack + invariants" ;;
 esac
 
 # ---- REPORT -----------------------------------------------------------------

@@ -24,15 +24,17 @@ This is that work, done once, installable anywhere.
 
 ## What you get
 
-- **A verify gate** (`.verify.sh`) that chains the checks your repo already has — tests, lint, typecheck. If your repo has nothing runnable, you get a gate that *fails loudly* instead of pretending to pass.
-- **Semantic search** over your own docs and code (LanceDB, fully offline). Non-Python repos get a note explaining the sidecar option instead of broken scripts.
-- **Agent rules** that fire every turn: search before acting, run the gate before saying done. Installs to `.cursor/rules/` or `.claude/rules/`.
-- **The [loops](https://github.com/noidsoup/loops) workflow pack** — 9 workflows (plan-and-implement, tdd, adversarial-gate…) and 9 review personas, symlinked in as `.loops`.
-- **An Obsidian wiki** at `<repo> wiki/` — a knowledge base with conventions the agent follows: decision records, runbooks, an index and log. Open it in Obsidian, and everything it writes is searchable by the semantic layer.
-- **Memory files** the agent maintains — context survives sessions.
-- **An `AGENTS.md` stub** and sensible `.gitignore` entries.
+| | What | Why it matters |
+|---|---|---|
+| **Verify gate** | `.verify.sh` runs your existing tests / lint / typecheck | “Done” means something. No suite? It fails loudly instead of faking a pass. |
+| **Semantic search** | LanceDB over your docs and code (offline) | Agents look things up before inventing them. Non-Python repos get a short sidecar note, not broken scripts. |
+| **Agent rules** | Search-before-acting + verify-before-done | Installed to `.cursor/rules/` or `.claude/rules/`. |
+| **[loops](https://github.com/noidsoup/loops)** | 9 workflows + 9 review personas | Symlinked in as `.loops` (plan-and-implement, tdd, adversarial-gate, …). |
+| **Obsidian wiki** | `<repo> wiki/` | Decisions, runbooks, index, and log — agent-readable, human-browsable, searchable. |
+| **Memory** | Session + long-term memory files | Context survives across chats. |
+| **AGENTS.md** | Stub + `.gitignore` tweaks | A place for your stack and hard rules. |
 
-Nothing you already have gets touched. Every write is create-if-absent; re-running the script reports `existed` and moves on. Run `--dry-run` first if you want to see the plan.
+Safe by default: nothing you already have is overwritten. Re-runs report `existed` and skip. Prefer `--dry-run` first.
 
 ## What it looks like
 
@@ -50,10 +52,8 @@ Full transcript of a real run: [docs/demo.md](docs/demo.md).
 
 ## After it runs
 
-Two things need a human:
-
-1. **The verify gate** — if you got the fail-loud stub, add tests or lint so "correct" means something.
-2. **The AGENTS.md stub** — fill in the `<PLACEHOLDERS>` with your stack and hard-won rules. Five minutes.
+1. **Verify gate** — if you got the fail-loud stub, add real tests or lint so “correct” means something.
+2. **AGENTS.md** — ask your coding agent to fill the `<PLACEHOLDERS>` from the repo (stack, deploy host, hard rules). Spot-check; don’t invent secrets.
 
 Python repos, one more step to light up search:
 

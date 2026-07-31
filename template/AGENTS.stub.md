@@ -1,7 +1,8 @@
 # AGENTS.md — <PROJECT NAME>
 
-> Minimal stub created by `bootstrap`. Fill in the bracketed parts, then delete this note.
-> Keep this file small (<~200 lines). Link out to deeper docs; don't inline everything.
+> Minimal stub created by `bootstrap`. Ask your coding agent to fill the bracketed
+> parts from this repo, then delete this note. Keep the file small (<~200 lines);
+> link out to deeper docs instead of inlining everything.
 
 **This repo:** <one line: what it is and who uses it>
 **Stack:** <language / framework / package manager / host>
