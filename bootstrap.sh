@@ -17,7 +17,11 @@ set -euo pipefail
 
 # Where templates live. If this script was downloaded standalone (not run from
 # a clone of the repo), fetch the template tree once and cache it.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
+SCRIPT_DIR=""
+if _src="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)"; then
+  SCRIPT_DIR="$_src"
+fi
+unset _src
 CACHE_DIR="${MY_ROBOT_HOME:-$HOME/.my-robot}"
 REPO_RAW="https://raw.githubusercontent.com/noidsoup/my-robot/main"
 LOOPS_REPO="https://github.com/noidsoup/loops"
@@ -73,7 +77,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-TARGET="$(cd "$TARGET" 2>/dev/null && pwd || true)"
+if ! TARGET="$(cd "$TARGET" 2>/dev/null && pwd)"; then
+  TARGET=""
+fi
 [[ -z "$TARGET" || ! -d "$TARGET" ]] && { echo "ERROR: target is not a directory"; exit 1; }
 cd "$TARGET"
 
