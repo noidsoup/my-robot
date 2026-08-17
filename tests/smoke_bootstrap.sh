@@ -99,9 +99,17 @@ assert_not_grep "$NODE/.gitignore" '^uncommitted/' "non-Python gitignore omits u
 # ---- 3. Idempotent re-run --------------------------------------------------
 RE_OUT="$TMP/re.out"
 bash "$BOOT" "$NODE" >"$RE_OUT" 2>&1
+assert_grep "$RE_OUT" 'python:0' "re-run still detects non-Python (wiki-lint.py is not the app)"
 assert_grep "$RE_OUT" 'L0 Ground Truth[[:space:]]+existed' "re-run L0 existed"
+assert_grep "$RE_OUT" 'L1 Retrieval[[:space:]]+existed' "re-run L1 stays sidecar note, does not install LanceDB"
 assert_grep "$RE_OUT" 'L2 Constraints[[:space:]]+existed' "re-run L2 existed"
 assert_grep "$RE_OUT" 'AGENTS\.md[[:space:]]+existed' "re-run AGENTS existed"
+assert_not_grep "$RE_OUT" 'LanceDB scaffold' "re-run does not add LanceDB to a Node app"
+if [[ ! -e "$NODE/scripts/index_project_knowledge_lancedb.py" ]]; then
+  pass "re-run did not write LanceDB indexer"
+else
+  fail "re-run wrote LanceDB indexer into a Node app"
+fi
 
 # ---- 4. Claude-only rules dir ----------------------------------------------
 CLAUDE="$TMP/claude-only"

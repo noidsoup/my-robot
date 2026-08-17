@@ -191,8 +191,19 @@ ensure_line() {  # ensure_line <file> <line>
 IS_GIT=0; git rev-parse --is-inside-work-tree >/dev/null 2>&1 && IS_GIT=1
 HAS_PKG=0; [[ -f package.json ]] && HAS_PKG=1
 HAS_PY=0
-if [[ -f pyproject.toml || -f requirements.txt || -f setup.py ]] || compgen -G "*.py" >/dev/null 2>&1 || compgen -G "scripts/*.py" >/dev/null 2>&1; then
+if [[ -f pyproject.toml || -f requirements.txt || -f setup.py ]] || compgen -G "*.py" >/dev/null 2>&1; then
   HAS_PY=1
+elif compgen -G "scripts/*.py" >/dev/null 2>&1; then
+  # Ignore helper scripts this installer writes (wiki-lint, LanceDB). Those
+  # must not flip a Node/Go repo into "Python" on the next run.
+  for _py in scripts/*.py; do
+    case "$(basename "$_py")" in
+      wiki-lint.py|index_project_knowledge_lancedb.py|search_project_knowledge_lancedb.py|project_knowledge_lancedb_common.py)
+        ;;
+      *) HAS_PY=1; break ;;
+    esac
+  done
+  unset _py
 fi
 HAS_GO=0; [[ -f go.mod ]] && HAS_GO=1
 HAS_CURSOR=0; [[ -d .cursor ]] && HAS_CURSOR=1
