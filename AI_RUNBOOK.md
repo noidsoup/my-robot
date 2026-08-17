@@ -19,10 +19,12 @@ git clone https://github.com/noidsoup/my-robot
 ./my-robot/bootstrap.sh /path/to/repo
 ```
 
-Standalone fetch (review the script first, or pass `--dry-run`):
+Standalone fetch (review the script first, or pass `--dry-run`). Verified 2026-08-17: dry-run writes nothing; first apply installs; re-run does not treat `wiki-lint.py` as a Python app. Templates cache under `~/.my-robot` (override with `MY_ROBOT_HOME`). Put `MY_ROBOT_HOME` on **bash**, not on `curl`, when piping:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/noidsoup/my-robot/main/bootstrap.sh | bash -s -- --dry-run
+# isolated cache (env must be on bash, not curl):
+# curl -fsSL ... | MY_ROBOT_HOME=/tmp/my-robot-cache bash -s -- --dry-run
 ```
 
 ## Regenerate a target repo's verify gate

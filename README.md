@@ -38,6 +38,8 @@ Safe by default: nothing you already have is overwritten. Re-runs report `existe
 
 ## What it looks like
 
+![my-robot bootstrap in a terminal](docs/demo.gif)
+
 ```
 L0 Ground Truth      generated      .verify.sh: npm test, npm run lint
 L1 Retrieval         note           non-Python: docs/ai-retrieval.md
@@ -48,7 +50,7 @@ L5 Continuity        installed      memory stubs (2 new)
 Done.
 ```
 
-Full transcript of a real run: [docs/demo.md](docs/demo.md).
+Full transcript of a real run, plus the curl check: [docs/demo.md](docs/demo.md). Copy-paste blurbs: [docs/portfolio-blurb.md](docs/portfolio-blurb.md).
 
 ## After it runs
 
@@ -67,7 +69,7 @@ Then open your repo in Cursor or Claude Code and say **"use the loops."**
 
 ## Who made this
 
-I'm [noidsoup](https://github.com/noidsoup). I run AI-first development across a fleet of production repos, and this is the system I install everywhere. **Want it running on yours? [Let's talk](https://github.com/noidsoup).**
+I'm [noidsoup](https://github.com/noidsoup). I run AI-first development across a fleet of production repos, and this is the system I install everywhere — honest verify, search-before-acting, memory that survives the next chat. **Want it running on yours? [Let's talk](https://github.com/noidsoup).**
 
 ## License
 
