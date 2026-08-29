@@ -5,3 +5,5 @@ node_modules/
 .env.local
 .loops
 uncommitted/
+__pycache__/
+*.pyc

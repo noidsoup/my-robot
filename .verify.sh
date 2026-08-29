@@ -18,6 +18,7 @@ run_step() {
 }
 
 run_step "smoke bootstrap" bash tests/smoke_bootstrap.sh
+run_step "harness lint" bash scripts/harness-lint.sh
 
 if command -v shellcheck >/dev/null 2>&1; then
   run_step "shellcheck" shellcheck -x bootstrap.sh template/gen-verify-gate.sh tests/smoke_bootstrap.sh \

@@ -33,6 +33,7 @@ bash .verify.sh
 | Architecture | `docs/ARCHITECTURE.md` |
 | Demo transcript | `docs/demo.md` |
 | Workflows (plan, tdd, gate, migrate…) | global `.loops/` (say "use the loops") |
+| Self-improve (L6 harness health) | `~/.loops/loops/self-improve/loop.md` |
 
 ## Continuity
 
