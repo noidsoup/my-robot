@@ -1,15 +1,14 @@
 ---
-description: LLM Wiki — read the project wiki's SCHEMA.md before any wiki operation
-globs:
-  - "* wiki/**"
-alwaysApply: false
+description: LLM Wiki — read my-robot wiki/SCHEMA.md before any wiki operation
+paths:
+  - "my-robot wiki/**"
 ---
 
 # LLM Wiki
 
-This project's Obsidian vault is **`<repo-folder-name> wiki/`** (repository folder name + space + `wiki`).
+This project's Obsidian vault is **`my-robot wiki/`** (repository folder name + space + `wiki`).
 
-Before creating, updating, or querying wiki pages, read the vault's `SCHEMA.md` for conventions.
+Before creating, updating, or querying wiki pages, read `my-robot wiki/SCHEMA.md` for conventions.
 
 The vault uses `[[wikilinks]]` for internal links. Every page has YAML frontmatter.
 
