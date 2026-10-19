@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """wiki-lint.py — structural health checks for my-robot Obsidian vaults.
 
-Finds vaults named \"<something> wiki/\" at the repo root (never bare wiki/).
+Finds vaults named \"<something> wiki/\" at the repo root, and a bare wiki/
+(the 2026-10 standard layout) when it has an index.md.
 Checks: broken [[wikilinks]], orphan pages, thin/empty bodies, index drift,
 missing SCHEMA/index/log, filename kebab-case for content pages.
 
@@ -61,6 +62,9 @@ def find_vaults(root: Path) -> list[Path]:
     for child in sorted(root.iterdir()):
         if child.is_dir() and child.name.endswith(" wiki"):
             vaults.append(child)
+    bare = root / "wiki"
+    if bare.is_dir() and (bare / "index.md").is_file():
+        vaults.append(bare)
     return vaults
 
 
@@ -175,7 +179,7 @@ def main() -> int:
     vaults = find_vaults(root)
     report = Report()
     if not vaults:
-        report.add("no-vault", root, 'no "<name> wiki/" vault found at repo root')
+        report.add("no-vault", root, 'no "<name> wiki/" or wiki/ vault found at repo root')
     for vault in vaults:
         lint_vault(vault, report)
 

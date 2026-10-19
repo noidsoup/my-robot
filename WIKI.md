@@ -1,14 +1,5 @@
-# Where is the LLM wiki?
+# Where is the wiki?
 
-The Obsidian vault is **not** a folder named `wiki`.
+This repo's own wiki is **`wiki/`** at the repo root. Start at **`wiki/index.md`**; writing rules are in **`wiki/SCHEMA.md`**. It was `my-robot wiki/` until 2026-10-19, and `.obsidian/` moved with it.
 
-It lives at:
-
-**`<repo-folder-name> wiki/`**
-
-There is a **space** between the repo name and `wiki` (project wiki naming rule: *repository folder name* + space + `wiki`).
-
-- **In Obsidian:** *Open folder as vault* → choose the `<repo> wiki` directory inside this repo.
-- **In your editor / Explorer:** expand the repo root and look for **`<repo> wiki`** (not `wiki` alone).
-
-Start here: **`<repo> wiki/SCHEMA.md`**.
+Note: the installer payload (`template/WIKI.stub.md`, `template/wiki/`) still creates a `<repo> wiki/` vault in other repos. See `wiki/decisions/0002-named-vault-convention.md`.

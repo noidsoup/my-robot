@@ -3,7 +3,10 @@
 **This repo:** Installer that clones the 7-layer AI-first development system into any repo (`bootstrap.sh` + `template/`).
 **Stack:** Bash (bootstrap + gen-verify-gate), Python templates for LanceDB retrieval, GitHub Actions CI.
 
-Claude Code loads this file through `.claude/CLAUDE.md`; this repo's own rules are in `.claude/rules/` (the wiki rule loads only for files in `my-robot wiki/`). Everything under `template/` is the payload `bootstrap.sh` installs into other repos (rules in Cursor format included), not this repo's own agent setup.
+Claude Code loads this file through `.claude/CLAUDE.md`; this repo's own rules are in `.claude/rules/` (the wiki rule loads only for files in `wiki/`). Everything under `template/` is the payload `bootstrap.sh` installs into other repos (rules in Cursor format included), not this repo's own agent setup.
+
+**Project wiki:** read `wiki/index.md` before non-trivial work; open pages it points to only when relevant.
+After a repeated failure, check `wiki/gotchas.md`. Writing to the wiki: follow `wiki/SCHEMA.md`.
 
 ## Retrieval order (read before acting)
 
@@ -42,7 +45,7 @@ CI (`.github/workflows/verify.yml`) installs shellcheck and runs `bash .verify.s
 | Demo transcript | `docs/demo.md` |
 | Install payload (rules, bridges, stubs, scripts, wiki seed) | `template/` |
 | Installer and its file list | `bootstrap.sh` |
-| Wiki (dogfood vault) | `my-robot wiki/SCHEMA.md` |
+| Project wiki (history, decisions, traps) | `wiki/index.md`, `wiki/gotchas.md` |
 | Workflows (plan, tdd, gate, migrate…) | global `.loops/` (say "use the loops") |
 | Self-improve (L6 harness health) | `~/.loops/loops/self-improve/loop.md` |
 
