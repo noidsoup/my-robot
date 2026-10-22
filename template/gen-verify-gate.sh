@@ -12,6 +12,7 @@
 # Usage:
 #   gen-verify-gate.sh [TARGET_DIR]            # default: current directory
 #   gen-verify-gate.sh --dry-run [TARGET_DIR]  # print what WOULD be written
+#   gen-verify-gate.sh --no-npm-script [DIR]   # leave package.json alone
 #
 # Idempotent: if .verify.sh already exists it is left untouched (reported).
 # Exit: 0 ok, 1 target not a directory.
@@ -19,10 +20,12 @@
 set -uo pipefail
 
 DRY_RUN=0
+NPM_SCRIPT=1
 TARGET="."
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY_RUN=1; shift ;;
+    --no-npm-script) NPM_SCRIPT=0; shift ;;
     -h|--help) grep '^#' "$0" | sed 's/^# \?//'; exit 0 ;;
     *) TARGET="$1"; shift ;;
   esac
@@ -188,7 +191,9 @@ fi
 
 # ---- wire npm "verify" script for JS repos ---------------------------------
 if [ "$STACK" = "js" ]; then
-  if has_npm_script verify; then
+  if [ "$NPM_SCRIPT" -eq 0 ]; then
+    echo "npm:    --no-npm-script — package.json left untouched"
+  elif has_npm_script verify; then
     echo "npm:    verify script already exists — left untouched"
   elif [ "$DRY_RUN" -eq 1 ]; then
     echo "npm:    WOULD add \"verify\": \"bash .verify.sh\" to package.json"

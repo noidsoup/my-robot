@@ -14,7 +14,9 @@ Prefer the clone path. A one-liner fetch exists for convenience — **review the
 curl -fsSL https://raw.githubusercontent.com/noidsoup/my-robot/main/bootstrap.sh | bash -s -- --dry-run
 ```
 
-Greenfield repos (no Cursor/Claude yet) get `.cursor/rules` by default; Claude-only repos (`CLAUDE.md` / `.claude/`) get `.claude/rules`.
+It wires the repo for **Claude Code**: rules in `.claude/rules/`, and `.claude/CLAUDE.md` importing `AGENTS.md`. Repos that only have `.cursor/` get Cursor `.mdc` rules instead.
+
+Working in someone else's repo? `--local-only` keeps the whole setup off their radar: every new file goes in `.git/info/exclude`, and tracked files (`.gitignore`, `package.json`) are not edited.
 
 ## The problem
 
@@ -28,11 +30,11 @@ This is that work, done once, installable anywhere.
 |---|---|---|
 | **Verify gate** | `.verify.sh` runs your existing tests / lint / typecheck | “Done” means something. No suite? It fails loudly instead of faking a pass. |
 | **Semantic search** | LanceDB over your docs and code (offline) | Agents look things up before inventing them. Non-Python repos get a short sidecar note, not broken scripts. |
-| **Agent rules** | Search-before-acting + verify-before-done | Installed to `.cursor/rules/` or `.claude/rules/`. |
+| **Agent rules** | Search-before-acting + verify-before-done | Installed to `.claude/rules/` (Cursor-only repos: `.cursor/rules/`). |
 | **[loops](https://github.com/noidsoup/loops)** | 9 workflows + 9 review personas | Symlinked in as `.loops` (plan-and-implement, tdd, adversarial-gate, …). |
 | **Obsidian wiki** | `<repo> wiki/` | Decisions, runbooks, index, and log — agent-readable, human-browsable, searchable. |
 | **Memory** | Session + long-term memory files | Context survives across chats. |
-| **AGENTS.md** | Stub + `.gitignore` tweaks | A place for your stack and hard rules. |
+| **AGENTS.md** | Stub with working rules, tested commands, error baseline, local login, push safety | The things that cost an agent hours when nobody wrote them down. |
 
 Safe by default: nothing you already have is overwritten. Re-runs report `existed` and skip. Prefer `--dry-run` first. Health-check an install with `bootstrap.sh --doctor`.
 
@@ -43,7 +45,7 @@ Safe by default: nothing you already have is overwritten. Re-runs report `existe
 ```
 L0 Ground Truth      generated      .verify.sh: npm test, npm run lint
 L1 Retrieval         note           non-Python: docs/ai-retrieval.md
-L2 Constraints       installed      .cursor/rules (3 new)
+L2 Constraints       installed      .claude/rules (3 new)
 L3 Workflows         installed      .loops -> ~/.loops (symlink)
 L4 Knowledge Wiki    installed      my-app wiki/ (open in Obsidian)
 L5 Continuity        installed      memory stubs (2 new)

@@ -8,6 +8,11 @@
 #   bootstrap.sh [TARGET_DIR]      # default: current directory
 #   bootstrap.sh --dry-run [DIR]   # report what WOULD happen, write nothing
 #   bootstrap.sh --doctor [DIR]    # read-only health check (no writes)
+#   bootstrap.sh --local-only [DIR]  # nothing team-visible: every new file goes in
+#                                    # .git/info/exclude, tracked files are not edited
+#
+# Agent target: Claude Code (.claude/rules/*.md + .claude/CLAUDE.md importing
+# AGENTS.md). Repos that have .cursor/ and no Claude setup get Cursor .mdc rules.
 #
 # Standalone (no clone):
 #   curl -fsSL https://raw.githubusercontent.com/noidsoup/my-robot/main/bootstrap.sh | bash -s -- --dry-run
@@ -42,7 +47,10 @@ requirements-lancedb.txt
 rules/pre-task-retrieval.mdc
 rules/verify-before-done.mdc
 rules/llm-wiki.mdc
-bridges/CLAUDE.stub.md
+rules/claude/pre-task-retrieval.md
+rules/claude/verify-before-done.md
+rules/claude/llm-wiki.md
+bridges/claude-dir-CLAUDE.md
 bridges/cursor-agents.mdc
 scripts/index_project_knowledge_lancedb.py
 scripts/project_knowledge_lancedb_common.py
@@ -76,12 +84,14 @@ fi
 
 DRY_RUN=0
 DOCTOR=0
+LOCAL_ONLY=0
 TARGET="."
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run) DRY_RUN=1; shift ;;
     --doctor) DOCTOR=1; shift ;;
+    --local-only) LOCAL_ONLY=1; shift ;;
     -h|--help) grep '^#' "$0" | sed 's/^# \?//' ; exit 0 ;;
     *) TARGET="$1"; shift ;;
   esac
@@ -127,11 +137,13 @@ do_write() {  # do_write <dest-rel> <src-abs>   (create if absent)
   fi
   if [[ $DRY_RUN -eq 1 ]]; then
     LAST_WRITE=would-write
+    local_exclude "$dest"
     return 0
   fi
   mkdir -p "$(dirname "$dest")"
   if cp "$src" "$dest"; then
     LAST_WRITE=installed
+    local_exclude "$dest"
     return 0
   fi
   LAST_WRITE=failed
@@ -216,18 +228,54 @@ echo "git:$IS_GIT  node:$HAS_PKG  python:$HAS_PY  go:$HAS_GO  cursor:$HAS_CURSOR
 echo
 
 [[ $IS_GIT -eq 0 ]] && echo "WARN: not a git repo — proceeding anyway"
+if [[ $LOCAL_ONLY -eq 1 && $IS_GIT -eq 0 ]]; then
+  echo "ERROR: --local-only needs a git repo (it hides files via .git/info/exclude)"
+  exit 1
+fi
+[[ $LOCAL_ONLY -eq 1 ]] && echo "(local-only — new files go in .git/info/exclude; tracked files are not edited)"
+
+# ---- local excludes ---------------------------------------------------------
+# .git/info/exclude is per-clone and never committed. --local-only puts every
+# file this run adds there; every git repo also gets the machine-only scratch
+# paths so they can't leak into a commit.
+EXCLUDE_FILE=""
+if [[ $IS_GIT -eq 1 ]]; then
+  EXCLUDE_FILE="$(git rev-parse --git-path info/exclude)"
+fi
+local_exclude() {  # local_exclude <path-rel>   (no-op unless --local-only)
+  [[ $LOCAL_ONLY -eq 1 && -n "$EXCLUDE_FILE" ]] || return 0
+  [[ $DRY_RUN -eq 1 ]] || mkdir -p "$(dirname "$EXCLUDE_FILE")"
+  ensure_line "$EXCLUDE_FILE" "/$1" || true
+}
+if [[ -n "$EXCLUDE_FILE" ]]; then
+  ex_new=0
+  [[ $DRY_RUN -eq 1 ]] || mkdir -p "$(dirname "$EXCLUDE_FILE")"
+  for p in /.local/ /CLAUDE.local.md /.claude/settings.local.json; do
+    if ensure_line "$EXCLUDE_FILE" "$p"; then ex_new=$((ex_new + 1)); fi
+  done
+  if [[ $ex_new -eq 0 ]]; then
+    add_report "local excludes" "existed" ".local/, CLAUDE.local.md, settings.local.json"
+  elif [[ $DRY_RUN -eq 1 ]]; then
+    add_report "local excludes" "would-ensure" "$ex_new machine-only paths -> .git/info/exclude"
+  else
+    add_report "local excludes" "ensured" "$ex_new machine-only paths -> .git/info/exclude"
+  fi
+fi
 
 # ---- L0: Ground Truth (verify gate) ----------------------------------------
 # Generate a sensible-default .verify.sh that chains ONLY checks that already
 # exist. Never fabricates a suite: repos with nothing runnable get an honest
 # fail-loud stub. Existing gates are left untouched.
 GENVERIFY="$TEMPLATES_DIR/gen-verify-gate.sh"
+GV_FLAGS=()
+[[ $LOCAL_ONLY -eq 1 ]] && GV_FLAGS+=(--no-npm-script)  # don't edit a tracked package.json
 VERIFY_STATUS="skipped"; VERIFY_DETAIL="gen-verify-gate.sh not found"
 if [[ -f "$GENVERIFY" ]]; then
   if [[ -f .verify.sh ]]; then
     VERIFY_STATUS="existed"; VERIFY_DETAIL=".verify.sh already present"
   elif [[ $DRY_RUN -eq 1 ]]; then
-    GV_OUT="$(bash "$GENVERIFY" --dry-run "$TARGET" 2>&1 || true)"
+    local_exclude ".verify.sh"
+    GV_OUT="$(bash "$GENVERIFY" --dry-run "${GV_FLAGS[@]+"${GV_FLAGS[@]}"}" "$TARGET" 2>&1 || true)"
     if echo "$GV_OUT" | grep -q 'none detected'; then
       VERIFY_STATUS="would-write"; VERIFY_DETAIL="would write fail-loud .verify.sh (no checks detected)"
     else
@@ -235,7 +283,8 @@ if [[ -f "$GENVERIFY" ]]; then
       VERIFY_STATUS="would-write"; VERIFY_DETAIL="would generate .verify.sh: ${GV_CHECKS:-detected checks}"
     fi
   else
-    GV_OUT="$(bash "$GENVERIFY" "$TARGET" 2>&1)"
+    GV_OUT="$(bash "$GENVERIFY" "${GV_FLAGS[@]+"${GV_FLAGS[@]}"}" "$TARGET" 2>&1)"
+    [[ -f .verify.sh ]] && local_exclude ".verify.sh"
     if echo "$GV_OUT" | grep -q 'none detected'; then
       VERIFY_STATUS="stub"; VERIFY_DETAIL="no real checks found — fail-loud .verify.sh written (add tests/lint, then regenerate)"
     else
@@ -272,26 +321,37 @@ else
 fi
 
 # ---- L2: Constraints (rules) ------------------------------------------------
-# Default to .cursor/rules (greenfield + Cursor). Claude-only repos get .claude/rules.
-if [[ $HAS_CURSOR -eq 1 || $HAS_CLAUDE -eq 0 ]]; then
-  RULES_DIR=".cursor/rules"
+# Claude Code by default (.claude/rules/*.md). Cursor .mdc rules only for repos
+# that have .cursor/ and no Claude setup yet — Claude Code does not read .mdc.
+# A repo that already got the .mdc rules stays on them (our own Claude bridge
+# would otherwise flip it to Claude on the next run).
+if [[ -f .cursor/rules/pre-task-retrieval.mdc ]] || [[ $HAS_CURSOR -eq 1 && $HAS_CLAUDE -eq 0 ]]; then
+  RULES_DIR=".cursor/rules"; RULE_SRC="rules"; RULE_EXT="mdc"
 else
-  RULES_DIR=".claude/rules"
+  RULES_DIR=".claude/rules"; RULE_SRC="rules/claude"; RULE_EXT="md"
 fi
 rw=0; re=0; rf=0
-for r in pre-task-retrieval.mdc verify-before-done.mdc llm-wiki.mdc; do
-  do_write "$RULES_DIR/$r" "$TEMPLATES_DIR/rules/$r" || true
+for r in pre-task-retrieval verify-before-done llm-wiki; do
+  do_write "$RULES_DIR/$r.$RULE_EXT" "$TEMPLATES_DIR/$RULE_SRC/$r.$RULE_EXT" || true
   count_write rw re rf
 done
 add_report "L2 Constraints" "$(batch_status "$rw" "$rf")" "$RULES_DIR ($rw new, $re existed, $rf failed)"
 
 # ---- L2.5: Thin tool bridges (AGENTS.md is canonical) ----------------------
 # contextdocs / agentic-bootstrap pattern: don't duplicate instructions —
-# point Claude/Cursor at AGENTS.md. Create-if-absent only.
-do_write "CLAUDE.md" "$TEMPLATES_DIR/bridges/CLAUDE.stub.md" || true
-add_report "  CLAUDE.md bridge" "$LAST_WRITE" "@AGENTS.md adapter for Claude Code"
-do_write "$RULES_DIR/agents.mdc" "$TEMPLATES_DIR/bridges/cursor-agents.mdc" || true
-add_report "  agents.mdc bridge" "$LAST_WRITE" "Cursor always-on pointer to AGENTS.md"
+# point Claude/Cursor at AGENTS.md. Create-if-absent only. The Claude bridge
+# goes in .claude/CLAUDE.md so root CLAUDE.md stays free for local tools. Both
+# files load, so it is skipped only when root CLAUDE.md already imports AGENTS.md.
+if grep -qs 'AGENTS\.md' CLAUDE.md; then
+  add_report "  Claude bridge" "existed" "CLAUDE.md already references AGENTS.md"
+else
+  do_write ".claude/CLAUDE.md" "$TEMPLATES_DIR/bridges/claude-dir-CLAUDE.md" || true
+  add_report "  Claude bridge" "$LAST_WRITE" ".claude/CLAUDE.md imports AGENTS.md"
+fi
+if [[ "$RULES_DIR" == ".cursor/rules" ]]; then
+  do_write "$RULES_DIR/agents.mdc" "$TEMPLATES_DIR/bridges/cursor-agents.mdc" || true
+  add_report "  agents.mdc bridge" "$LAST_WRITE" "Cursor always-on pointer to AGENTS.md"
+fi
 
 # ---- L3: Workflows (clone loops + symlink) ----------------------------------
 if [[ -e .loops ]]; then
@@ -312,6 +372,7 @@ else
   fi
   if [[ -d "$LOOPS_ROOT" && ! -e .loops ]]; then
     ln -s "$LOOPS_ROOT" .loops
+    local_exclude ".loops"
     add_report "L3 Workflows" "installed" ".loops -> $LOOPS_ROOT (symlink, auto-updates)"
   fi
 fi
@@ -348,6 +409,7 @@ elif [[ $DRY_RUN -eq 1 ]]; then
     add_report "L4 Knowledge Wiki" "would-write" "$VAULT_DIR/ (SCHEMA, index, log, .obsidian)"
   fi
 else
+    local_exclude "$VAULT_DIR/"
     mkdir -p "$VAULT_DIR/.obsidian" "$VAULT_DIR"/{sources,entities,concepts,decisions,guides,memories,synthesis,raw,assets,_templates}
   TODAY="$(date +%F)"
   vault_ok=1
@@ -394,19 +456,22 @@ do_write "docs/ARCHITECTURE.md" "$TEMPLATES_DIR/docs/ARCHITECTURE.stub.md" || tr
 add_report "  ARCHITECTURE.md" "$LAST_WRITE" "docs/ARCHITECTURE.md stub"
 
 # ---- gitignore: only list lines we actually manage -------------------------
+# --local-only leaves the tracked .gitignore alone and uses .git/info/exclude.
+IGNORE_FILE=".gitignore"
+[[ $LOCAL_ONLY -eq 1 ]] && IGNORE_FILE="$EXCLUDE_FILE"
 GI_PARTS=()
 GI_STATUS="ensured"
 if [[ $HAS_PY -eq 1 ]]; then
   GI_PARTS+=("uncommitted/")
-  if ensure_line .gitignore "uncommitted/"; then
+  if ensure_line "$IGNORE_FILE" "uncommitted/"; then
     [[ "$LAST_ENSURE" == "would-add" ]] && GI_STATUS="would-ensure"
   fi
 fi
 GI_PARTS+=(".loops")
-if ensure_line .gitignore ".loops"; then
+if ensure_line "$IGNORE_FILE" ".loops"; then
   [[ "$LAST_ENSURE" == "would-add" ]] && GI_STATUS="would-ensure"
 fi
-GI_DETAIL="$(IFS=', '; echo "${GI_PARTS[*]}") ignored"
+GI_DETAIL="$(IFS=', '; echo "${GI_PARTS[*]}") ignored ($IGNORE_FILE)"
 add_report "gitignore" "$GI_STATUS" "$GI_DETAIL"
 
 # ---- Harness helpers (declarative phases + wiki lint + handoff) ------------
@@ -433,6 +498,7 @@ elif [[ $DRY_RUN -eq 1 ]]; then
   add_report "manifest" "would-write" "$MANIFEST"
 else
   mkdir -p "$MANIFEST_DIR"
+  local_exclude "$MANIFEST_DIR/"
   cat > "$MANIFEST" <<EOF
 {
   "schema_version": 1,

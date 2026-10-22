@@ -4,8 +4,8 @@ type: entity
 summary: The one-script installer: modes, stack detection, template cache, and what it reports.
 status: active
 created: 2026-10-19
-updated: 2026-10-19
-last_verified: 2026-10-19
+updated: 2026-10-21
+last_verified: 2026-10-21
 sources: [bootstrap.sh, AI_RUNBOOK.md, tests/smoke_bootstrap.sh, "commit a8442b6"]
 tags: [installer, bash]
 ---
@@ -29,7 +29,7 @@ tags: [installer, bash]
 
 ## Stack detection
 
-`git`, Node (`package.json`), Python (`pyproject.toml`, `requirements.txt`, `setup.py`, `*.py` at root, or non-helper `scripts/*.py`), Go (`go.mod`), Cursor (`.cursor/`), Claude (`.claude/` or `CLAUDE.md`). Python → LanceDB scaffold; otherwise a `docs/ai-retrieval.md` sidecar note. Cursor present or no Claude → rules in `.cursor/rules`, else `.claude/rules`.
+`git`, Node (`package.json`), Python (`pyproject.toml`, `requirements.txt`, `setup.py`, `*.py` at root, or non-helper `scripts/*.py`), Go (`go.mod`), Cursor (`.cursor/`), Claude (`.claude/` or `CLAUDE.md`). Python → LanceDB scaffold; otherwise a `docs/ai-retrieval.md` sidecar note. Rules go to `.claude/rules/*.md` unless the repo is Cursor-only (`.cursor/` and no Claude setup) or already has the `.mdc` rules. `--local-only` writes the same files but lists each in `.git/info/exclude` and leaves `.gitignore` and `package.json` alone.
 
 ## Other writes
 

@@ -175,6 +175,8 @@ for f in .env.example WIKI.stub.md AI_RUNBOOK.stub.md docs/ARCHITECTURE.stub.md 
          docs/ai-retrieval-sidecar.md gen-verify-gate.sh \
          memory/AI_SESSION_MEMORY.md memory/MEMORY.md \
          rules/pre-task-retrieval.mdc rules/verify-before-done.mdc rules/llm-wiki.mdc \
+         rules/claude/pre-task-retrieval.md rules/claude/verify-before-done.md rules/claude/llm-wiki.md \
+         bridges/claude-dir-CLAUDE.md \
          wiki/SCHEMA.md wiki/index.md wiki/log.md wiki/.obsidian/app.json; do
   mkdir -p "$(dirname "$BROKEN/template/$f")"
   cp "$ROOT/template/$f" "$BROKEN/template/$f"
@@ -204,7 +206,8 @@ assert_grep "$TMP/partial.out" 'L4 Knowledge Wiki[[:space:]]+installed' "incompl
 assert_file "$PARTIAL/$(basename "$PARTIAL") wiki/SCHEMA.md" "repaired vault has SCHEMA.md"
 
 # ---- 9. Doctor + bridges + harness helpers ---------------------------------
-assert_file "$NODE/CLAUDE.md" "apply wrote CLAUDE.md bridge"
+assert_file "$NODE/.claude/CLAUDE.md" "apply wrote .claude/CLAUDE.md bridge"
+if [[ ! -e "$NODE/CLAUDE.md" ]]; then pass "root CLAUDE.md left free for local tools"; else fail "apply wrote root CLAUDE.md"; fi
 assert_file "$NODE/.cursor/rules/agents.mdc" "apply wrote agents.mdc bridge"
 assert_file "$NODE/scripts/wiki-lint.py" "apply wrote wiki-lint.py"
 assert_file "$NODE/scripts/run-verify-phases.sh" "apply wrote run-verify-phases.sh"
@@ -216,6 +219,52 @@ DRC=$?
 set -e
 if [[ "$DRC" -eq 0 ]]; then pass "doctor exits 0 on bootstrapped node app"; else fail "doctor exit=$DRC"; fi
 assert_grep "$TMP/doctor.out" 'doctor: PASS' "doctor reports PASS"
+assert_grep "$TMP/doctor.out" 'Claude bridge imports AGENTS\.md' "doctor sees the .claude/CLAUDE.md bridge"
+assert_grep "$TMP/doctor.out" 'unfilled stub' "doctor flags the unfilled AGENTS.md stub"
+
+# ---- 10. Greenfield git repo gets Claude Code wiring -----------------------
+# Cursor was retired; Claude Code does not read .mdc rules, so a repo with no
+# agent setup must get .claude/rules/*.md and a bridge that loads AGENTS.md.
+GREEN="$TMP/greenfield"
+mkdir -p "$GREEN"
+git -C "$GREEN" init -q
+bash "$BOOT" "$GREEN" >"$TMP/green.out" 2>&1
+for r in pre-task-retrieval verify-before-done llm-wiki; do
+  assert_file "$GREEN/.claude/rules/$r.md" "greenfield got .claude/rules/$r.md"
+done
+assert_not_grep "$GREEN/.claude/rules/llm-wiki.md" 'alwaysApply|globs:' "Claude wiki rule uses paths:, not Cursor keys"
+if [[ ! -e "$GREEN/.cursor" ]]; then pass "greenfield got no .cursor/"; else fail "greenfield got .cursor/"; fi
+assert_grep "$GREEN/.claude/CLAUDE.md" '^@\.\./AGENTS\.md$' "greenfield bridge imports ../AGENTS.md"
+assert_grep "$GREEN/.git/info/exclude" '^/\.local/$' "machine-only .local/ is git-excluded"
+assert_grep "$GREEN/.git/info/exclude" '^/CLAUDE\.local\.md$' "CLAUDE.local.md is git-excluded"
+
+# ---- 11. --local-only leaves no trace in git status ------------------------
+# Client repos: the setup must not show up as changes the client could see.
+LOCAL="$TMP/client-repo"
+mkdir -p "$LOCAL"
+printf '%s\n' '{"name":"client","scripts":{"test":"echo ok"}}' > "$LOCAL/package.json"
+printf '%s\n' 'node_modules/' > "$LOCAL/.gitignore"
+printf '%s\n' '# Client-owned instructions, no import of the agent brief' > "$LOCAL/CLAUDE.md"
+git -C "$LOCAL" init -q
+git -C "$LOCAL" add -A
+git -C "$LOCAL" -c user.name=smoke -c user.email=smoke@example.com -c core.hooksPath=/dev/null commit -qm init
+bash "$BOOT" --local-only "$LOCAL" >"$TMP/local.out" 2>&1
+assert_file "$LOCAL/AGENTS.md" "local-only still wrote AGENTS.md"
+assert_file "$LOCAL/.claude/CLAUDE.md" "local-only wrote the bridge even with a tracked CLAUDE.md"
+assert_file "$LOCAL/.verify.sh" "local-only still wrote .verify.sh"
+LOCAL_STATUS="$(git -C "$LOCAL" status --porcelain)"
+if [[ -z "$LOCAL_STATUS" ]]; then
+  pass "local-only: git status is clean"
+else
+  fail "local-only: git status shows changes:"; printf '      %s\n' "$LOCAL_STATUS"
+fi
+assert_not_grep "$LOCAL/package.json" '"verify"' "local-only did not add an npm verify script"
+mkdir -p "$TMP/plain-dir"
+set +e
+bash "$BOOT" --local-only "$TMP/plain-dir" >"$TMP/plain.out" 2>&1
+PLRC=$?
+set -e
+if [[ "$PLRC" -eq 1 ]]; then pass "local-only refuses a non-git dir"; else fail "local-only on non-git dir exit=$PLRC (want 1)"; fi
 
 echo
 if [[ "$FAILED" -eq 0 ]]; then

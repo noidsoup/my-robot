@@ -4,8 +4,8 @@ type: entity
 summary: What template/ contains and where each file lands in a target repo.
 status: active
 created: 2026-10-19
-updated: 2026-10-19
-last_verified: 2026-10-19
+updated: 2026-10-21
+last_verified: 2026-10-21
 sources: [bootstrap.sh, docs/ARCHITECTURE.md, template/]
 tags: [template, payload]
 ---
@@ -19,8 +19,8 @@ Everything under `template/` is copied or used to generate files in **other** re
 | `gen-verify-gate.sh` | generates `.verify.sh` (+ npm `verify` script for JS) | L0 ([[honest-verify-gate]]) |
 | `.env.example` | `.env.example` | L0.5 |
 | `scripts/*lancedb*.py`, `requirements-lancedb.txt` / `docs/ai-retrieval-sidecar.md` | LanceDB scaffold (Python) or `docs/ai-retrieval.md` (others) | L1 |
-| `rules/pre-task-retrieval.mdc`, `verify-before-done.mdc`, `llm-wiki.mdc` | `.cursor/rules/` or `.claude/rules/` | L2 |
-| `bridges/CLAUDE.stub.md`, `bridges/cursor-agents.mdc` | root `CLAUDE.md`, `<rules>/agents.mdc` | L2.5 |
+| `rules/claude/*.md` (Claude Code) / `rules/*.mdc` (Cursor-only repos) | `.claude/rules/` / `.cursor/rules/` | L2 |
+| `bridges/claude-dir-CLAUDE.md`, `bridges/cursor-agents.mdc` | `.claude/CLAUDE.md`, `.cursor/rules/agents.mdc` | L2.5 |
 | — | `.loops` symlink → `~/.loops` (clones `noidsoup/loops` if missing) | L3 |
 | `wiki/SCHEMA.md`, `index.md`, `log.md`, `.obsidian/app.json`, `WIKI.stub.md` | `<repo> wiki/` + `WIKI.md` | L4 ([[0002-named-vault-convention]]) |
 | `memory/AI_SESSION_MEMORY.md`, `memory/MEMORY.md` | same names at root | L5 |

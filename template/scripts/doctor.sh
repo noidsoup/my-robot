@@ -58,8 +58,10 @@ fi
 
 RULE_HITS=0
 for d in .cursor/rules .claude/rules; do
-  [[ -f "$d/verify-before-done.mdc" ]] && RULE_HITS=$((RULE_HITS + 1))
-  [[ -f "$d/pre-task-retrieval.mdc" ]] && RULE_HITS=$((RULE_HITS + 1))
+  for ext in mdc md; do
+    [[ -f "$d/verify-before-done.$ext" ]] && RULE_HITS=$((RULE_HITS + 1))
+    [[ -f "$d/pre-task-retrieval.$ext" ]] && RULE_HITS=$((RULE_HITS + 1))
+  done
 done
 if [[ "$RULE_HITS" -ge 2 ]]; then
   ok "agent rules present (L2)"
@@ -99,10 +101,12 @@ check_file AGENTS.md "AGENTS.md present" "missing AGENTS.md" bad
 
 echo
 echo "Bridges"
-if [[ -f CLAUDE.md ]]; then
-  ok "CLAUDE.md bridge"
+if grep -qs 'AGENTS\.md' CLAUDE.md .claude/CLAUDE.md; then
+  ok "Claude bridge imports AGENTS.md"
+elif [[ -f CLAUDE.md || -f .claude/CLAUDE.md ]]; then
+  warn "CLAUDE.md exists but does not import AGENTS.md (add @AGENTS.md, or @../AGENTS.md in .claude/CLAUDE.md)"
 else
-  note "—" "no CLAUDE.md (optional unless Claude Code)"
+  warn "no CLAUDE.md or .claude/CLAUDE.md — Claude Code will not load AGENTS.md"
 fi
 if [[ -f .cursor/rules/agents.mdc ]] || [[ -f .cursor/rules/cursor-agents.mdc ]]; then
   ok "Cursor AGENTS bridge rule"
@@ -147,6 +151,62 @@ if [[ -f AGENTS.md ]]; then
   else
     ok "AGENTS.md is $LINES lines (within ~200 budget)"
   fi
+  if grep -q 'Minimal stub created by' AGENTS.md; then
+    warn "AGENTS.md is still the unfilled stub — ask your agent to fill it from the repo"
+  fi
+  # The sections that cost the most time when missing: tested commands,
+  # the pre-existing error baseline, how to log in locally, push rules.
+  for h in '## Commands' '## Known baseline' '## Running locally' '## Git and push safety'; do
+    if grep -q "^$h" AGENTS.md; then
+      ok "AGENTS.md has '$h'"
+    else
+      warn "AGENTS.md has no '$h' section (see my-robot template/AGENTS.stub.md)"
+    fi
+  done
+  if grep -q '^## Commands' AGENTS.md && ! grep -qi 'last verified: *[0-9]' AGENTS.md; then
+    warn "Commands section has no 'Last verified: YYYY-MM-DD' — re-run the commands and date them"
+  fi
+fi
+
+echo
+echo "Runtime pin"
+PIN=""
+for f in .nvmrc .node-version; do
+  [[ -f "$f" ]] && { PIN="$(tr -d ' v\n' < "$f")"; PIN_FILE="$f"; break; }
+done
+[[ -z "$PIN" && -f .tool-versions ]] && PIN="$(awk '$1=="nodejs"{print $2}' .tool-versions)" && PIN_FILE=.tool-versions
+ENGINES=""
+shopt -s nullglob
+for pj in package.json */package.json; do
+  e="$(grep -A3 '"engines"' "$pj" | grep -o '"node"[[:space:]]*:[[:space:]]*"[^"]*"' | sed 's/.*: *"//; s/"$//')"
+  [[ -n "$e" ]] && ENGINES="${ENGINES}${pj}: node ${e}; "
+done
+shopt -u nullglob
+if [[ -n "$PIN" ]]; then
+  ok "Node pinned: $PIN ($PIN_FILE)"
+  if command -v node >/dev/null 2>&1; then
+    HAVE="$(node --version | tr -d v)"
+    if [[ "${HAVE%%.*}" != "${PIN%%.*}" ]]; then
+      warn "installed Node $HAVE does not match pinned $PIN — installs and builds may fail"
+    fi
+  fi
+  [[ -n "$ENGINES" ]] && note "—" "engines: $ENGINES"
+elif [[ -n "$ENGINES" ]]; then
+  warn "engines set but no .nvmrc / .node-version — agents can't tell which Node to use ($ENGINES)"
+elif [[ -f package.json ]]; then
+  warn "Node project with no .nvmrc / .node-version / engines"
+else
+  note "—" "not a Node project"
+fi
+
+echo
+echo "Git"
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  note "—" "origin: $(git remote get-url origin 2>/dev/null || echo none)"
+  git remote get-url upstream >/dev/null 2>&1 && note "—" "upstream: $(git remote get-url upstream)"
+  PUSHURL="$(git config remote.origin.pushurl || true)"
+  [[ -n "$PUSHURL" ]] && note "—" "origin push URL overridden: $PUSHURL"
+  [[ -x "$(git rev-parse --git-path hooks/pre-push)" ]] && note "—" "local pre-push hook present"
 fi
 
 echo

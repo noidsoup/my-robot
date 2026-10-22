@@ -4,8 +4,8 @@ type: decision
 summary: my-robot's own rules live in .claude/ (Claude Code); template/ keeps the Cursor-format payload untouched.
 status: active
 created: 2026-10-19
-updated: 2026-10-19
-last_verified: 2026-10-19
+updated: 2026-10-21
+last_verified: 2026-10-21
 sources: ["commit be40cc6", AGENTS.md, .claude/CLAUDE.md]
 tags: [adr, agents, claude-code]
 ---
@@ -28,7 +28,7 @@ Cursor was retired on 2026-10-02. Claude Code never read this repo's own `.curso
 
 ## Consequences
 
-- The payload still installs Cursor-format `.mdc` rules (into `.cursor/rules` unless the target is Claude-only) and a root `CLAUDE.md` bridge. In Nicholas's Claude Code repos that is the wrong place; review after running ([[gotchas]]).
+- ~~The payload still installs Cursor-format `.mdc` rules and a root `CLAUDE.md` bridge.~~ Resolved 2026-10-21: the payload now targets Claude Code (`.claude/rules/*.md`, `.claude/CLAUDE.md`); Cursor `.mdc` only for Cursor-only repos ([[gotchas]]).
 - Updating the payload for Claude Code is an open product decision. *(open)*
 
 ## Related

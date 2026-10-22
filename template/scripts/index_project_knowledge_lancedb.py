@@ -194,7 +194,16 @@ def main() -> int:
     db = lancedb.connect(str(index_dir))
 
     partial = bool(args.files)
-    rel_paths = sorted({rel_posix(p, root) for p in files})
+    # Only delete paths we successfully read — skip read errors must not wipe existing rows.
+    rel_paths = sorted({rel for _, rel, _ in meta_rows})
+
+    if partial and not db_has_table(db, TABLE_NAME):
+        print(
+            "ERROR: --files partial update requires an existing index. "
+            "Run a full build first: python3 -u scripts/index_project_knowledge_lancedb.py --apply",
+            flush=True,
+        )
+        return 1
 
     if partial and db_has_table(db, TABLE_NAME):
         table = db.open_table(TABLE_NAME)

@@ -12,7 +12,7 @@ A one-script bootstrap that installs a 7-layer AI-first development foundation i
 | `template/` | Files copied or used to generate target-repo artifacts |
 | `template/gen-verify-gate.sh` | Detects real checks; writes honest `.verify.sh` |
 | `template/scripts/` | LanceDB, wiki-lint, verify-phases, doctor, handoff |
-| `template/bridges/` | Thin CLAUDE.md + Cursor `agents.mdc` → AGENTS.md |
+| `template/bridges/` | `.claude/CLAUDE.md` + Cursor `agents.mdc` → AGENTS.md |
 | `template/.harness/` | Declarative verify phase example |
 | `template/rules/` | Cursor/Claude always-on rules |
 | `template/wiki/` | Obsidian vault seed (`<repo> wiki/`) |
@@ -58,7 +58,7 @@ L6 is a **conductor**, not a new skill pack in every repo. It lives at `LOOPS_RO
 1. Create-if-absent; never clobber.
 2. Dry-run statuses must not claim `installed`.
 3. Empty gates fail loud (exit 1).
-4. Greenfield / Cursor → `.cursor/rules`; Claude-only → `.claude/rules`.
+4. Claude Code by default → `.claude/rules/*.md`; Cursor-only repos (`.cursor/`, no Claude setup, or already on `.mdc`) → `.cursor/rules`. `--local-only` puts every new file in `.git/info/exclude`.
 
 ## Related
 
