@@ -1,0 +1,25 @@
+bootstrap.sh
+  s_6ce0bd7b9fff85::t_dbaca340036439 395-398
+template/scripts/doctor.sh
+  s_6ce0bd7b9fff85::t_577d484d4b3cc3 80
+tests/smoke_bootstrap.sh
+  s_6ce0bd7b9fff85::t_6299fe760d8b7f 225-232
+wiki/gotchas.md
+  s_6ce0bd7b9fff85::t_ea5b6bf07a8258 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "851353e52010e129814aa0a4259bc0214b4b35e4",
+  "prompts": {},
+  "sessions": {
+    "s_6ce0bd7b9fff85": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4b4acf90-9c77-4448-a59e-50dd53913067",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nicholas Eymann <nicholas@cooperbold.com>"
+    }
+  }
+}
