@@ -392,6 +392,10 @@ vault_complete() {
 
 if vault_complete; then
   add_report "L4 Knowledge Wiki" "existed" "$VAULT_DIR/ left untouched"
+elif [[ -s wiki/SCHEMA.md ]]; then
+  # Repos on the newer wiki/ layout already have a wiki; a second one would
+  # split the knowledge and fail wiki lint.
+  add_report "L4 Knowledge Wiki" "existed" "wiki/ (SCHEMA.md present) left untouched"
 elif [[ ! -d "$VAULT_TEMPLATE" ]] \
      || [[ ! -f "$VAULT_TEMPLATE/SCHEMA.md" ]] \
      || [[ ! -f "$VAULT_TEMPLATE/index.md" ]] \

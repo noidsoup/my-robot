@@ -222,6 +222,14 @@ assert_grep "$TMP/doctor.out" 'doctor: PASS' "doctor reports PASS"
 assert_grep "$TMP/doctor.out" 'Claude bridge imports AGENTS\.md' "doctor sees the .claude/CLAUDE.md bridge"
 assert_grep "$TMP/doctor.out" 'unfilled stub' "doctor flags the unfilled AGENTS.md stub"
 
+# ---- 9b. A repo already on wiki/ does not get a second vault ---------------
+WIKIREPO="$TMP/has-wiki"
+mkdir -p "$WIKIREPO/wiki"
+echo "# Schema" > "$WIKIREPO/wiki/SCHEMA.md"
+bash "$BOOT" "$WIKIREPO" >"$TMP/haswiki.out" 2>&1
+assert_grep "$TMP/haswiki.out" 'L4 Knowledge Wiki[[:space:]]+existed[[:space:]]+wiki/' "existing wiki/ reported as existed"
+if [[ ! -e "$WIKIREPO/has-wiki wiki" ]]; then pass "no second '<repo> wiki/' vault"; else fail "created a second vault next to wiki/"; fi
+
 # ---- 10. Greenfield git repo gets Claude Code wiring -----------------------
 # Cursor was retired; Claude Code does not read .mdc rules, so a repo with no
 # agent setup must get .claude/rules/*.md and a bridge that loads AGENTS.md.

@@ -77,7 +77,7 @@ fi
 
 VAULT=""
 shopt -s nullglob
-for d in *\ wiki; do
+for d in *\ wiki wiki; do
   if [[ -d "$d" ]]; then VAULT="$d"; break; fi
 done
 shopt -u nullglob

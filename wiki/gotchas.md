@@ -14,7 +14,7 @@ tags: [gotchas]
 
 One line each: the trap, then the fix or the page with details.
 
-- **Bootstrap creates a second wiki in repos that use `wiki/`.** L4 only checks for `<repo> wiki/`, so running it on a repo already on the 2026-10 `wiki/` standard adds `<repo> wiki/`, which the standard lint reports as an error. Delete it or skip L4 until the payload follows the standard. → [[0002-named-vault-convention]]
+- **Repos on `wiki/` keep it.** L4 reports `existed` when `wiki/SCHEMA.md` is present instead of adding `<repo> wiki/` (fixed 2026-10-21). New installs still create `<repo> wiki/`. → [[0002-named-vault-convention]]
 - **Cursor-only repos stay on `.mdc` rules.** A repo with `.cursor/` and no Claude setup, or one that already got `.mdc` rules, keeps getting them; Claude Code won't read them. Move it to Claude by hand. → [[0004-own-setup-vs-payload]]
 - **The `.claude/CLAUDE.md` bridge is skipped only when root `CLAUDE.md` already mentions `AGENTS.md`.** Both files load, so a root file that imports it would load AGENTS.md twice.
 - **Editing `template/` changes other repos, not this one.** This repo's own setup is `.claude/` + `AGENTS.md`. → [[0004-own-setup-vs-payload]]
